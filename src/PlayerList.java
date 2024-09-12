@@ -28,6 +28,13 @@ public class PlayerList {
         }
     }
 
+    public void reset(){
+        for(Player p : players){
+            p.reset();
+        }
+        resetCall();
+    }
+
     public PlayerList() {
         players = new ArrayList<>();
     }
