@@ -1,4 +1,5 @@
 import java.util.ArrayList;
+import java.util.Random;
 import java.util.Scanner;
 
 public class GameOperator {
@@ -7,27 +8,40 @@ public class GameOperator {
     private static int pot = 0;
     private static final Scanner scanner = new Scanner(System.in);
     private static int highBet = 0;
+    private static int smallBlindAmount = 1;
+    private static int bigBlindAmount = 2;
+    private static int numberOfChips = 1000;
 
     public GameOperator() {
     }
 
     public void playGame() {
-        System.out.println("Welcome! How many players?");
+        System.out.println("Welcome! I am Daniel, and it's my pleasure to serve as your banker");
+        System.out.println("How many players?");
         int numberOfPlayers = Integer.parseInt(scanner.nextLine());
-        int numberOfChips = 1000;
         for (int i = 0; i < numberOfPlayers; i++) {
             System.out.println("What is the name of " + formatOrdinal(i+1) + " player?");
             players.addPlayer(new Player(scanner.nextLine(), numberOfChips));
         }
+        System.out.println("Do you want to customize the chips of small big and big blind and the number of" +
+                "chips of each player (default: 1, 2, 1000)? (y/n)");
+        if (scanner.nextLine().equalsIgnoreCase("y")) {
+            System.out.println("Amount of chips for Small Blind: ");
+            smallBlindAmount = Integer.parseInt(scanner.nextLine());
+            System.out.println("Amount of chips for big blind: ");
+            bigBlindAmount = Integer.parseInt(scanner.nextLine());
+            System.out.println("Amount of chips of each player: ");
+            numberOfChips = Integer.parseInt(scanner.nextLine());
+        }
 
-
-        int smallBlind = 0;
+        Random rand = new Random();
+        int smallBlind = rand.nextInt(numberOfPlayers);
         int bigBlind = (smallBlind + 1) % numberOfPlayers;
 
-        players.get(smallBlind).bet(1);
-        players.get(bigBlind).bet(2);
-        pot+=3;
-        highBet+=2;
+        players.get(smallBlind).bet(smallBlindAmount);
+        players.get(bigBlind).bet(bigBlindAmount);
+        pot += (smallBlindAmount+bigBlindAmount);
+        highBet += bigBlindAmount;
 
         while (true) {
             boolean allFolds = false;
@@ -45,7 +59,7 @@ public class GameOperator {
                 if (player.hasFolded() || player.isAllIn() || (player.getChips() == 0)) continue;
                 try{operate(getAction(player), player);} catch (Exception e) {
                     System.out.println("Please try again");
-                    System.out.println(e.getMessage());
+                    System.err.println(e.getMessage());
                     System.out.println("---------------------------------------");
                     playerIndex = (playerIndex - 1) % numberOfPlayers;
                 }
@@ -73,7 +87,7 @@ public class GameOperator {
                         if (player.hasFolded()||player.isAllIn()||player.getChips()==0) continue;
                         try{operate(getAction(player), player);} catch (Exception e) {
                             System.out.println("Please try again");
-                            System.out.println(e.getMessage());
+                            System.err.println(e.getMessage());
                             System.out.println("---------------------------------------");
                             playerIndex = (playerIndex - 1) % numberOfPlayers;
                         }
@@ -109,7 +123,6 @@ public class GameOperator {
 
             System.out.println("Continue? (y/n)");
             String nextGame = scanner.nextLine().toLowerCase();
-            System.out.println(nextGame);
             if (!nextGame.equals("y") && !nextGame.startsWith("ye")){
                 System.out.println("---------------------------------------");
                 System.out.println("Settling payments");
@@ -120,19 +133,17 @@ public class GameOperator {
             }
 
             players.reset();
-            pot = 3;
+            pot = (smallBlindAmount + bigBlindAmount);
             smallBlind = (smallBlind + 1) % numberOfPlayers;
             bigBlind = (bigBlind + 1) % numberOfPlayers;
-            players.get(smallBlind).bet(1);
-            players.get(bigBlind).bet(2);
-            highBet = 2;
-
-
+            players.get(smallBlind).bet(smallBlindAmount);
+            players.get(bigBlind).bet(bigBlindAmount);
+            highBet = bigBlindAmount;
         }
     }
 
     public void operate(String command, Player player){
-        String commands[] = command.split(" ",2);
+        String[] commands = command.split(" ",2);
         String action = commands[0];
         switch (action){
             case "call", "ca", "cal", "cl", "c" -> {
@@ -154,13 +165,14 @@ public class GameOperator {
             }
 
             case "raise", "r", "ra","rai", "rs","riase" -> {
-                int raiseAmount = 0;
+                int raiseAmount;
                 try{
                     raiseAmount = Integer.parseInt(commands[1]);
                 } catch (Exception e) {
                     System.out.println("How many chips do you want to raise?");
                     raiseAmount = Integer.parseInt(scanner.nextLine());
                 }
+                if (raiseAmount <= 0) throw new IllegalStateException("You must raise a positive number");
                 highBet += raiseAmount;
                 int betAmount = highBet - player.getBet();
                 if(betAmount > player.getChips()){
@@ -205,7 +217,7 @@ public class GameOperator {
         + ", Bet: "+ player.getBet()+", Pot: " + pot);
         System.out.println("What does " + player.getName() + " want to do?");
         System.out.println("Options: " + getOptions(player));
-        return scanner.nextLine();
+        return scanner.nextLine().toLowerCase();
     }
 
     private static String getOptions(Player player) {
