@@ -13,11 +13,11 @@ public class GameOperator {
 
     public void playGame() {
         System.out.println("Welcome! How many players?");
-        int numberOfPlayers = scanner.nextInt();
+        int numberOfPlayers = Integer.parseInt(scanner.nextLine());
         int numberOfChips = 1000;
         for (int i = 0; i < numberOfPlayers; i++) {
             System.out.println("What is the name of " + formatOrdinal(i+1) + " player?");
-            players.addPlayer(new Player(scanner.next(), numberOfChips));
+            players.addPlayer(new Player(scanner.nextLine(), numberOfChips));
         }
 
 
@@ -90,11 +90,11 @@ public class GameOperator {
             if(!allFolds){
                 ArrayList<String> activePlayers = players.getActivePlayers();
                 System.out.println("Who win? [" + String.join(",",activePlayers) + "]");
-                String name = scanner.next();
+                String name = scanner.nextLine();
                 while(!activePlayers.contains(name)){
                     System.err.println("Name isn't correct, please try again!");
                     System.out.println("Who win? [" + String.join(",",activePlayers) + "]");
-                    name = scanner.next();
+                    name = scanner.nextLine();
                 }
                 System.out.println(name + ", congratulations!");
                 Player winner = players.getPlayerByName(name);
@@ -108,7 +108,7 @@ public class GameOperator {
             players.print();
 
             System.out.println("Continue? (y/n)");
-            String nextGame = scanner.next().toLowerCase();
+            String nextGame = scanner.nextLine().toLowerCase();
             System.out.println(nextGame);
             if (!nextGame.equals("y") && !nextGame.startsWith("ye")){
                 System.out.println("---------------------------------------");
@@ -132,7 +132,8 @@ public class GameOperator {
     }
 
     public void operate(String command, Player player){
-        String action = command.split(" ",2)[0].toLowerCase();
+        String commands[] = command.split(" ",2);
+        String action = commands[0];
         switch (action){
             case "call", "ca", "cal", "cl", "c" -> {
                 if (highBet>(player.getBet()+player.getChips())){
@@ -153,7 +154,13 @@ public class GameOperator {
             }
 
             case "raise", "r", "ra","rai", "rs","riase" -> {
-                int raiseAmount = scanner.nextInt();
+                int raiseAmount = 0;
+                try{
+                    raiseAmount = Integer.parseInt(commands[1]);
+                } catch (Exception e) {
+                    System.out.println("How many chips do you want to raise?");
+                    raiseAmount = Integer.parseInt(scanner.nextLine());
+                }
                 highBet += raiseAmount;
                 int betAmount = highBet - player.getBet();
                 if(betAmount > player.getChips()){
@@ -198,7 +205,7 @@ public class GameOperator {
         + ", Bet: "+ player.getBet()+", Pot: " + pot);
         System.out.println("What does " + player.getName() + " want to do?");
         System.out.println("Options: " + getOptions(player));
-        return scanner.next();
+        return scanner.nextLine();
     }
 
     private static String getOptions(Player player) {
