@@ -1,16 +1,12 @@
-import java.util.Random;
+import java.util.ArrayList;
 import java.util.Scanner;
 
 public class GameOperator {
 
-    private static int numOfPlayers;
-    private static PlayerList players = new PlayerList();
+    private static final PlayerList players = new PlayerList();
     private static int pot = 0;
-    private static int smallBlind;
-    private static int bigBlind;
-    private static Scanner scanner = new Scanner(System.in);
+    private static final Scanner scanner = new Scanner(System.in);
     private static int highBet = 0;
-    private static boolean[] fold = new boolean[5];
 
     public GameOperator() {
     }
@@ -20,13 +16,13 @@ public class GameOperator {
         int numberOfPlayers = scanner.nextInt();
         int numberOfChips = 1000;
         for (int i = 0; i < numberOfPlayers; i++) {
-            System.out.println("What is the name of player" + (i + 1) + "?");
+            System.out.println("What is the name of " + formatOrdinal(i+1) + " player?");
             players.addPlayer(new Player(scanner.next(), numberOfChips));
         }
 
 
-        smallBlind = 0;
-        bigBlind = (smallBlind + 1)%numberOfPlayers;
+        int smallBlind = 0;
+        int bigBlind = (smallBlind + 1) % numberOfPlayers;
 
         players.get(smallBlind).bet(1);
         players.get(bigBlind).bet(2);
@@ -34,41 +30,95 @@ public class GameOperator {
         highBet+=2;
 
         while (true) {
+            boolean allFolds = false;
 
             players.print();
             System.out.println("---------------------------------------");
             System.out.println("Round 1");
             System.out.println("---------------------------------------");
             players.resetCall();
-            int playerIndex = (bigBlind + 1) % numberOfPlayers;
+            int playerIndex = bigBlind % numberOfPlayers;
             while (true) {
+                playerIndex = (playerIndex + 1) % numberOfPlayers;
                 if (players.allCalledOrFolded()) break;
                 Player player = players.get(playerIndex);
-                if (player.hasFolded()) continue;
-                operate(getAction(playerIndex), player);
-                playerIndex = (playerIndex + 1) % numberOfPlayers;
+                if (player.hasFolded() || player.isAllIn() || (player.getChips() == 0)) continue;
+                try{operate(getAction(player), player);} catch (Exception e) {
+                    System.out.println("Please try again");
+                    System.out.println(e.getMessage());
+                    System.out.println("---------------------------------------");
+                    playerIndex = (playerIndex - 1) % numberOfPlayers;
+                }
+                if(players.getActivePlayersNumber() == 1){
+                    Player winner = players.getActivePlayer();
+                    winner.win(pot);
+                    allFolds = true;
+                    System.out.println(winner.getName() + " won the game as the last player on the table!");
+                    break;
+                }
+
             }
 
-
-            for (int round = 1; round < 4; round++) {
-                System.out.println("Round " + (round + 1));
-                System.out.println("---------------------------------------");
-                players.resetCall();
-                playerIndex = smallBlind - 1;
-                while (true) {
-                    playerIndex = (playerIndex + 1) % numberOfPlayers;
-                    if (players.allCalledOrFolded()) break;
-                    Player player = players.get(playerIndex);
-                    if (player.hasFolded()) continue;
-                    operate(getAction(playerIndex), player);
+            if(!allFolds&&!players.allButOneNotFoldedOrAllin()) {
+                for (int round = 1; round < 4; round++) {
+                    if (allFolds) break;
+                    System.out.println("Round " + (round + 1));
+                    System.out.println("---------------------------------------");
+                    players.resetCall();
+                    playerIndex = smallBlind - 1;
+                    while (true) {
+                        playerIndex = (playerIndex + 1) % numberOfPlayers;
+                        if (players.allCalledOrFolded()) break;
+                        Player player = players.get(playerIndex);
+                        if (player.hasFolded()||player.isAllIn()||player.getChips()==0) continue;
+                        try{operate(getAction(player), player);} catch (Exception e) {
+                            System.out.println("Please try again");
+                            System.out.println(e.getMessage());
+                            System.out.println("---------------------------------------");
+                            playerIndex = (playerIndex - 1) % numberOfPlayers;
+                        }
+                        if (players.getActivePlayersNumber() == 1) {
+                            Player winner = players.getActivePlayer();
+                            winner.win(pot);
+                            allFolds = true;
+                            System.out.println(winner.getName() + " won the game as the last player on the table!");
+                            break;
+                        }
+                    }
+                }
+            }
+            if(!allFolds){
+                ArrayList<String> activePlayers = players.getActivePlayers();
+                System.out.println("Who win? [" + String.join(",",activePlayers) + "]");
+                String name = scanner.next();
+                while(!activePlayers.contains(name)){
+                    System.err.println("Name isn't correct, please try again!");
+                    System.out.println("Who win? [" + String.join(",",activePlayers) + "]");
+                    name = scanner.next();
+                }
+                System.out.println(name + ", congratulations!");
+                Player winner = players.getPlayerByName(name);
+                if(winner.isAllIn()){
+                    winner.win(players.calculateSidePot(winner.getBet()));
+                } else {
+                    winner.win(pot);
                 }
             }
 
-            System.out.println("Who win?");
-            String name = scanner.next();
-            System.out.println("Congratulations! " + name);
-            players.getPlayerByName(name).win(pot);
             players.print();
+
+            System.out.println("Continue? (y/n)");
+            String nextGame = scanner.next().toLowerCase();
+            System.out.println(nextGame);
+            if (!nextGame.equals("y") && !nextGame.startsWith("ye")){
+                System.out.println("---------------------------------------");
+                System.out.println("Settling payments");
+                players.settlePayments(numberOfChips);
+                System.out.println("Goodbye");
+                System.out.println("---------------------------------------");
+                System.exit(0);
+            }
+
             players.reset();
             pot = 3;
             smallBlind = (smallBlind + 1) % numberOfPlayers;
@@ -77,17 +127,17 @@ public class GameOperator {
             players.get(bigBlind).bet(2);
             highBet = 2;
 
-            System.out.println("Quit? (y/n)");
-            if (scanner.next().toLowerCase().equals("y")) {
-                System.exit(0);
-            }
+
         }
     }
 
     public void operate(String command, Player player){
         String action = command.split(" ",2)[0].toLowerCase();
         switch (action){
-            case "call", "ca", "cal", "cl" -> {
+            case "call", "ca", "cal", "cl", "c" -> {
+                if (highBet>(player.getBet()+player.getChips())){
+                    throw new IllegalStateException("You must all-in");
+                }
                 int betAmount = highBet - player.getBet();
                 player.bet(betAmount);
                 pot+=betAmount;
@@ -96,18 +146,23 @@ public class GameOperator {
                 System.out.println("---------------------------------------");
             }
 
-            case "fold", "f" -> {
+            case "fold", "f","fd", "fo","fld" -> {
                 player.fold();
                 System.out.println(player.getName() + " folded");
                 System.out.println("---------------------------------------");
             }
 
-            case "raise", "r" -> {
-                players.resetCall();
-                player.setHasCalled(true);
+            case "raise", "r", "ra","rai", "rs","riase" -> {
                 int raiseAmount = scanner.nextInt();
                 highBet += raiseAmount;
                 int betAmount = highBet - player.getBet();
+                if(betAmount > player.getChips()){
+                    throw new IllegalStateException("The player doesn't have enough chips");
+                }
+
+                players.resetCall();
+                player.setHasCalled(true);
+
                 player.bet(betAmount);
                 pot += betAmount;
                 System.out.println(player.getName() + " raised by " + raiseAmount + " with " + betAmount + " chips");
@@ -124,16 +179,51 @@ public class GameOperator {
                 System.out.println("---------------------------------------");
             }
 
+            case "all-in", "ai", "all", "al" -> {
+                player.setAllIn(true);
+                int betAmount = player.getChips();
+                player.bet(betAmount);
+                pot += betAmount;
+                if(player.getBet()>highBet) highBet = player.getBet();
+                System.out.println(player.getName() + " all-in with " + betAmount + " chips");
+                System.out.println("---------------------------------------");
+            }
+
             default -> throw new IllegalStateException("Unexpected value: " + action);
         }
     }
 
-    private static String getAction(int j) {
-        System.out.println("It's " + players.get(j).getName() + "'s turn. Chips: " + players.get(j).getChips()
-        + ". Pot: " + pot);
-        System.out.println("What does " + players.get(j).getName() + " want to do?");
-        String action = scanner.next();
-        return action;
+    private static String getAction(Player player) {
+        System.out.println("It's " + player.getName() + "'s turn. Chips: " + player.getChips()
+        + ", Bet: "+ player.getBet()+", Pot: " + pot);
+        System.out.println("What does " + player.getName() + " want to do?");
+        System.out.println("Options: " + getOptions(player));
+        return scanner.next();
     }
+
+    private static String getOptions(Player player) {
+        if(player.getBet() == highBet){
+            return "[Fold, Check, Raise]";
+        } else if (highBet > (player.getBet()+player.getChips())){
+            return "[Fold, All-in, Raise]";
+        } else {
+            return "[Fold, Call, Raise]";
+        }
+    }
+
+    public static String formatOrdinal(int number) {
+        if (number % 100 >= 11 && number % 100 <= 13) {
+            return number + "th";
+        }
+
+        return switch (number % 10) {
+            case 1 -> number + "st";
+            case 2 -> number + "nd";
+            case 3 -> number + "rd";
+            default -> number + "th";
+        };
+    }
+
+
 
 }
