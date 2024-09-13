@@ -178,7 +178,7 @@ public class GameOperator {
                 System.out.println("---------------------------------------");
             }
 
-            case "raise", "r", "ra","rai", "rs","riase" -> {
+            case "raise", "r", "ra","rai", "rs" -> {
                 if(players.allOpponentsAllInOrFolded(player)) throw new PokerException("You can't raise when everyone folded or went all-in");
                 int raiseAmount;
                 try{
@@ -204,7 +204,7 @@ public class GameOperator {
                 System.out.println("---------------------------------------");
             }
 
-            case "check","ch","chck","ck","chk" -> {
+            case "check","ch","ck","chk" -> {
                 if(player.getBet() == highBet){
                     player.setHasCalled(true);
                 } else{
