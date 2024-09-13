@@ -1,5 +1,5 @@
 public class Player {
-    private String name;
+    private final String name;
     private int chips;
     private boolean hasFolded;
     private int bet;
@@ -10,6 +10,9 @@ public class Player {
         return allIn;
     }
 
+    public int getTotal(){
+        return chips + bet;
+    }
     public void setAllIn(boolean allIn) {
         this.allIn = allIn;
     }
@@ -22,12 +25,8 @@ public class Player {
         this.hasCalled = hasCalled;
     }
 
-    public boolean hasCalled(){
-        return hasCalled;
-    }
-
-    public void setBet(int bet) {
-        this.bet = bet;
+    public boolean isCalled(){
+        return !hasCalled;
     }
 
     public boolean hasFolded() {
@@ -55,19 +54,15 @@ public class Player {
         return name;
     }
 
-    public void setName(String name) {
-        this.name = name;
-    }
 
     public int getChips() {
         return chips;
     }
 
-    public void setChips(int chips) {
-        this.chips = chips;
-    }
-
     public void bet(int chips){
+        if(this.chips - chips < 0){
+            throw new RuntimeException("Chips can't be less than 0");
+        }
         this.chips -= chips;
         this.bet += chips;
     }
@@ -76,7 +71,9 @@ public class Player {
         this.chips += pot;
     }
 
-
+    public boolean isBankrupt(int amount){
+        return chips+bet-amount <=0;
+    }
 
     @Override
     public String toString() {

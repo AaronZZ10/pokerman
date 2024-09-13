@@ -48,7 +48,7 @@ public class GameOperator {
 
             players.print();
             System.out.println("---------------------------------------");
-            System.out.println("Round 1");
+            System.out.println(formatRound(0) + " round");
             System.out.println("---------------------------------------");
             players.resetCall();
             int playerIndex = bigBlind % numberOfPlayers;
@@ -56,7 +56,8 @@ public class GameOperator {
                 playerIndex = (playerIndex + 1) % numberOfPlayers;
                 if (players.allCalledOrFolded()) break;
                 Player player = players.get(playerIndex);
-                if (player.hasFolded() || player.isAllIn() || (player.getChips() == 0)) continue;
+                if (whetherToSkip(player)) continue;
+                if(whetherToBreak(player)) break;
                 try{operate(getAction(player), player);} catch (Exception e) {
                     System.out.println("Please try again");
                     System.err.println(e.getMessage());
@@ -76,7 +77,7 @@ public class GameOperator {
             if(!allFolds&&!players.allButOneNotFoldedOrAllin()) {
                 for (int round = 1; round < 4; round++) {
                     if (allFolds) break;
-                    System.out.println("Round " + (round + 1));
+                    System.out.println(formatRound(round)+ " round");
                     System.out.println("---------------------------------------");
                     players.resetCall();
                     playerIndex = smallBlind - 1;
@@ -84,7 +85,8 @@ public class GameOperator {
                         playerIndex = (playerIndex + 1) % numberOfPlayers;
                         if (players.allCalledOrFolded()) break;
                         Player player = players.get(playerIndex);
-                        if (player.hasFolded()||player.isAllIn()||player.getChips()==0) continue;
+                        if(whetherToBreak(player)) break;
+                        if (whetherToSkip(player)) continue;
                         try{operate(getAction(player), player);} catch (Exception e) {
                             System.out.println("Please try again");
                             System.err.println(e.getMessage());
@@ -103,11 +105,11 @@ public class GameOperator {
             }
             if(!allFolds){
                 ArrayList<String> activePlayers = players.getActivePlayers();
-                System.out.println("Who win? [" + String.join(",",activePlayers) + "]");
+                System.out.println("Who won the game? [" + String.join(",",activePlayers) + "]");
                 String name = scanner.nextLine();
                 while(!activePlayers.contains(name)){
                     System.err.println("Name isn't correct, please try again!");
-                    System.out.println("Who win? [" + String.join(",",activePlayers) + "]");
+                    System.out.println("Who won the game? [" + String.join(",",activePlayers) + "]");
                     name = scanner.nextLine();
                 }
                 System.out.println(name + ", congratulations!");
@@ -119,11 +121,17 @@ public class GameOperator {
                 }
             }
 
+            players.reset();
             players.print();
 
-            System.out.println("Continue? (y/n)");
-            String nextGame = scanner.nextLine().toLowerCase();
-            if (!nextGame.equals("y") && !nextGame.startsWith("ye")){
+
+            boolean hasToEnd = players.onlyOneLeft(bigBlindAmount);
+            String nextGame = "n";
+            if(!hasToEnd) {
+                System.out.println("Do you want to play another game? (y/n)");
+                nextGame = scanner.nextLine().toLowerCase();
+            }
+            if (hasToEnd||(!nextGame.equals("y") && !nextGame.startsWith("ye"))){
                 System.out.println("---------------------------------------");
                 System.out.println("Settling payments");
                 players.settlePayments(numberOfChips);
@@ -132,29 +140,35 @@ public class GameOperator {
                 System.exit(0);
             }
 
-            players.reset();
+
+
             pot = (smallBlindAmount + bigBlindAmount);
-            smallBlind = (smallBlind + 1) % numberOfPlayers;
-            bigBlind = (bigBlind + 1) % numberOfPlayers;
+            do smallBlind = (smallBlind + 1) % numberOfPlayers; while(players.get(smallBlind).isBankrupt(smallBlindAmount));
+            do bigBlind = (bigBlind + 1) % numberOfPlayers; while(players.get(bigBlind).isBankrupt(bigBlindAmount)&&bigBlind!=smallBlind);
             players.get(smallBlind).bet(smallBlindAmount);
             players.get(bigBlind).bet(bigBlindAmount);
             highBet = bigBlindAmount;
         }
     }
 
-    public void operate(String command, Player player){
+    public void operate(String command, Player player) throws PokerException {
         String[] commands = command.split(" ",2);
         String action = commands[0];
         switch (action){
             case "call", "ca", "cal", "cl", "c" -> {
+                System.out.println(highBet);
                 if (highBet>(player.getBet()+player.getChips())){
-                    throw new IllegalStateException("You must all-in");
+                    throw new PokerException("You must fold or all-in");
                 }
                 int betAmount = highBet - player.getBet();
                 player.bet(betAmount);
                 pot+=betAmount;
                 player.setHasCalled(true);
-                System.out.println(player.getName() + " called with " + betAmount + " chips");
+                if(betAmount==0){
+                    System.out.println(player.getName() + " checked");
+                } else {
+                    System.out.println(player.getName() + " called with " + betAmount + " chips");
+                }
                 System.out.println("---------------------------------------");
             }
 
@@ -165,6 +179,7 @@ public class GameOperator {
             }
 
             case "raise", "r", "ra","rai", "rs","riase" -> {
+                if(players.allOpponentsAllInOrFolded(player)) throw new PokerException("You can't raise when everyone folded or went all-in");
                 int raiseAmount;
                 try{
                     raiseAmount = Integer.parseInt(commands[1]);
@@ -172,11 +187,12 @@ public class GameOperator {
                     System.out.println("How many chips do you want to raise?");
                     raiseAmount = Integer.parseInt(scanner.nextLine());
                 }
-                if (raiseAmount <= 0) throw new IllegalStateException("You must raise a positive number");
+                if (raiseAmount <= 0) throw new PokerException("You must raise a positive number");
+
                 highBet += raiseAmount;
                 int betAmount = highBet - player.getBet();
                 if(betAmount > player.getChips()){
-                    throw new IllegalStateException("The player doesn't have enough chips");
+                    throw new PokerException("The player doesn't have enough chips");
                 }
 
                 players.resetCall();
@@ -184,7 +200,7 @@ public class GameOperator {
 
                 player.bet(betAmount);
                 pot += betAmount;
-                System.out.println(player.getName() + " raised by " + raiseAmount + " with " + betAmount + " chips");
+                System.out.println(player.getName() + " went raise by " + raiseAmount + " with " + betAmount + " chips");
                 System.out.println("---------------------------------------");
             }
 
@@ -192,23 +208,32 @@ public class GameOperator {
                 if(player.getBet() == highBet){
                     player.setHasCalled(true);
                 } else{
-                    throw new IllegalStateException("The player can't check");
+                    throw new PokerException("The player can't go check");
                 }
-                System.out.println(player.getName() + " called");
+                System.out.println(player.getName() + " went check");
                 System.out.println("---------------------------------------");
             }
 
-            case "all-in", "ai", "all", "al" -> {
+            case "all-in", "ai", "all", "al", "a" -> {
+                if(players.allOpponentsAllInOrFolded(player)&&player.getTotal()>highBet){
+                    throw new PokerException("You must fold or call");
+                }
                 player.setAllIn(true);
+                player.setHasCalled(true);
                 int betAmount = player.getChips();
                 player.bet(betAmount);
+                if(player.getBet() > highBet){
+                    highBet = player.getBet();
+                    players.resetCall();
+                    player.setHasCalled(true);
+                }
                 pot += betAmount;
                 if(player.getBet()>highBet) highBet = player.getBet();
-                System.out.println(player.getName() + " all-in with " + betAmount + " chips");
+                System.out.println(player.getName() + " went all-in with " + betAmount + " chips");
                 System.out.println("---------------------------------------");
             }
 
-            default -> throw new IllegalStateException("Unexpected value: " + action);
+            default -> throw new PokerException("Unexpected value: " + action);
         }
     }
 
@@ -221,12 +246,18 @@ public class GameOperator {
     }
 
     private static String getOptions(Player player) {
-        if(player.getBet() == highBet){
-            return "[Fold, Check, Raise]";
-        } else if (highBet > (player.getBet()+player.getChips())){
-            return "[Fold, All-in, Raise]";
+        if(highBet == player.getTotal()){
+            return "[Fold, Call, All-in]";
+        }if (highBet > player.getTotal()){
+            return "[Fold, All-in]";
+        } else if(players.allOpponentsAllInOrFolded(player)){
+            if(player.getTotal()>highBet){
+                return "[Fold, Call]";
+            } else {
+                return "[Fold, Call, All-in]";
+            }
         } else {
-            return "[Fold, Call, Raise]";
+            return "[Fold, Check, Raise, All-in]";
         }
     }
 
@@ -240,6 +271,24 @@ public class GameOperator {
             case 2 -> number + "nd";
             case 3 -> number + "rd";
             default -> number + "th";
+        };
+    }
+
+    public static boolean whetherToSkip(Player player) {
+        return player.hasFolded()||player.isAllIn()||player.getChips()==0;
+    }
+
+    public static boolean whetherToBreak(Player player) {
+        return ((player.getBet()>=highBet)&&players.allOpponentsAllInOrFolded(player));
+    }
+
+    public static String formatRound(int number) {
+        return switch(number+1){
+            case 1 -> "Pre-flop";
+            case 2 -> "Flop";
+            case 3 -> "Turn";
+            case 4 -> "River";
+            default -> throw new IllegalStateException("Unexpected value: " + number);
         };
     }
 

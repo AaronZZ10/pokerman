@@ -9,7 +9,7 @@ public class PlayerList {
 
     public boolean allCalledOrFolded(){
         for(Player p : players){
-            if(!p.hasFolded()&&!p.hasCalled()&&!p.isAllIn()){
+            if(!p.hasFolded()&& p.isCalled() &&!p.isAllIn()&&!(p.getChips()<=0)){
                 return false;
             }
         }
@@ -38,15 +38,6 @@ public class PlayerList {
         players.add(player);
     }
 
-    public void removePlayer(Player player) {
-        players.remove(player);
-    }
-
-    public void shufflePlayers() {
-        Collections.shuffle(players);
-    }
-
-
     public Player getPlayerByName(String name){
         return players.stream().filter(p -> p.getName().equals(name)).findFirst().orElse(null);
     }
@@ -60,7 +51,7 @@ public class PlayerList {
     public int getActivePlayersNumber(){
         int count = 0;
         for (Player player : players) {
-            if (!player.hasFolded()) {
+            if (!player.hasFolded()&&!(player.isBankrupt(0))) {
                 count++;
             }
         }
@@ -79,7 +70,7 @@ public class PlayerList {
     public ArrayList<String> getActivePlayers(){
         ArrayList<String> playerNames = new ArrayList<>();
         for (Player player : players) {
-            if (!player.hasFolded()) {
+            if (!player.hasFolded()&&!player.isBankrupt(0)) {
                 playerNames.add(player.getName());
             }
         }
@@ -89,6 +80,9 @@ public class PlayerList {
     public boolean allButOneNotFoldedOrAllin(){
         int count = 0;
         for (Player player : players) {
+            if(!player.hasFolded()&& player.isCalled() &&!player.isAllIn()) {
+                return false;
+            }
             if (!player.hasFolded()&&!player.isAllIn()) {
                 count++;
             }
@@ -128,7 +122,7 @@ public class PlayerList {
         }
 
         for(Player payer : payers) {
-            int amountOwed = 0 - playerBalances.get(payer);
+            int amountOwed = -playerBalances.get(payer);
 
             for (Player payee : payees) {
                 int amountWon = playerBalances.get(payee);
@@ -145,6 +139,21 @@ public class PlayerList {
                 }
             }
         }
+    }
 
+    public boolean onlyOneLeft(int amount){
+        int count = 0;
+        for (Player player : players) {
+            if(!player.isBankrupt(amount)) count++;
+        }
+        return count <= 1;
+    }
+
+    public boolean allOpponentsAllInOrFolded(Player player){
+        for (Player p : players) {
+            if(p == player) continue;
+            if(!p.hasFolded()&&!p.isAllIn()&&!p.isBankrupt(0)) return false;
+        }
+        return true;
     }
 }
