@@ -4,6 +4,15 @@ public class Player {
     private boolean hasFolded;
     private int bet;
     private boolean hasCalled;
+    private boolean allIn;
+
+    public boolean isAllIn() {
+        return allIn;
+    }
+
+    public void setAllIn(boolean allIn) {
+        this.allIn = allIn;
+    }
 
     public int getBet() {
         return bet;
@@ -71,6 +80,6 @@ public class Player {
 
     @Override
     public String toString() {
-        return "Player [name=" + name + ", chips=" + chips + "]";
+        return "Player: " + name + ", Chips: " + chips;
     }
 }
